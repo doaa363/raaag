@@ -21,7 +21,6 @@ export class QueryAnalyzer {
       keywords: rawQuery.split(/\s+/).filter(w => w.length > 2),
       entities: {
         urgency: this.detectUrgency(rawQuery),
-        shipmentId: context.shipmentId,
       },
       intent: this.detectIntent(rawQuery),
       sentiment: 0,
@@ -36,11 +35,10 @@ export class QueryAnalyzer {
   }
 
   private detectIntent(text: string): 'COMPLAINT' | 'REPORT_ISSUE' | 'REQUEST_HELP' | 'FEEDBACK' | 'GENERAL' {
-    const lower = text.toLowerCase();
-    if (lower.includes('complaint') || lower.includes('problem')) return 'COMPLAINT';
-    if (lower.includes('report') || lower.includes('issue')) return 'REPORT_ISSUE';
-    if (lower.includes('help') || lower.includes('support')) return 'REQUEST_HELP';
-    if (lower.includes('feedback')) return 'FEEDBACK';
+    if (text.includes('complaint') || text.includes('problem')) return 'COMPLAINT';
+    if (text.includes('report') || text.includes('issue')) return 'REPORT_ISSUE';
+    if (text.includes('help') || text.includes('support')) return 'REQUEST_HELP';
+    if (text.includes('feedback')) return 'FEEDBACK';
     return 'GENERAL';
   }
 

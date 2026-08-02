@@ -5,7 +5,7 @@ export class EmbeddingModel {
   private openai: OpenAI;
 
   constructor() {
-    this.openai = new OpenAI({ apiKey: config.rag.llmApiKey || 'dummy-key' });
+    this.openai = new OpenAI({ apiKey: config.rag.llmApiKey });
   }
 
   async encodeText(text: string): Promise<number[]> {
@@ -15,9 +15,9 @@ export class EmbeddingModel {
         input: text,
       });
       return response.data[0].embedding;
-    } catch (error) {
-      // Return synthetic 1536-dimensional embedding as fallback when API key is unconfigured
-      return new Array(config.rag.vectorDimensions || 1536).fill(0).map((_, i) => Math.sin(i + text.length));
+    } catch {
+      // Return zero vector as fallback if OpenAI is unavailable
+      return new Array(config.rag.vectorDimensions).fill(0);
     }
   }
 
@@ -28,13 +28,13 @@ export class EmbeddingModel {
         input: texts,
       });
       return response.data.map(item => item.embedding);
-    } catch (error) {
-      return texts.map(t => new Array(config.rag.vectorDimensions || 1536).fill(0).map((_, i) => Math.sin(i + t.length)));
+    } catch {
+      return texts.map(() => new Array(config.rag.vectorDimensions).fill(0));
     }
   }
 
   async encodeImage(buffer: Buffer): Promise<number[]> {
-    console.warn('encodeImage called with fallback vector implementation');
-    return new Array(config.rag.vectorDimensions || 1536).fill(0);
+    console.warn('encodeImage called with dummy implementation');
+    return new Array(config.rag.vectorDimensions).fill(0);
   }
 }

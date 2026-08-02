@@ -2,7 +2,7 @@ import Tesseract from 'tesseract.js';
 import pdfParse from 'pdf-parse';
 import { EmbeddingModel } from '../infrastructure/EmbeddingModel';
 import { VectorStoreRepository } from '../infrastructure/VectorStoreRepository';
-import { ProcessedAttachment } from '../../../types/rag.types';
+import { ProcessedAttachment, VectorDocument } from '../../../types/rag.types';
 import { v4 as uuidv4 } from 'uuid';
 
 const DAMAGE_KEYWORDS = ['damaged', 'broken', 'crushed', 'wet', 'torn'];
@@ -19,7 +19,7 @@ export class MultiModalProcessor {
   async processBuffer(buffer: Buffer, mimeType: string, originalName: string): Promise<ProcessedAttachment> {
     let textContent = '';
     let embedding: number[] = [];
-    let type: 'DAMAGED_PARCEL' | 'RECEIPT' | 'SIGNATURE' | 'DOCUMENT' | 'VOICE_NOTE' = 'DOCUMENT';
+    let type: ProcessedAttachment['type'] = 'DOCUMENT';
     let metadata: any = {};
 
     if (mimeType.startsWith('image/')) {
@@ -48,38 +48,29 @@ export class MultiModalProcessor {
     return { type, textContent, embedding, metadata };
   }
 
-  private async processImage(buffer: Buffer): Promise<{ text: string; embedding: number[]; type: any; metadata: any }> {
-    let text = '';
-    try {
-      const ocrResult = await Tesseract.recognize(buffer, process.env.RAG_TESSERACT_LANG || 'ara+eng');
-      text = ocrResult.data.text;
-    } catch (e) {
-      text = '[OCR processing failed or unconfigured]';
-    }
+  private async processImage(buffer: Buffer): Promise<{ text: string; embedding: number[]; type: ProcessedAttachment['type']; metadata: any }> {
+    const ocrResult = await Tesseract.recognize(buffer, process.env.RAG_TESSERACT_LANG || 'ara+eng');
+    const text = ocrResult.data.text;
     const embedding = await this.embeddingModel.encodeText(text);
     const damageScore = DAMAGE_KEYWORDS.some(kw => text.toLowerCase().includes(kw)) ? 0.85 : 0.1;
-    const type = damageScore > 0.5 ? 'DAMAGED_PARCEL' : 'RECEIPT';
+    const type: ProcessedAttachment['type'] = damageScore > 0.5 ? 'DAMAGED_PARCEL' : 'RECEIPT';
     return { text, embedding, type, metadata: { damageScore, pageCount: 1 } };
   }
 
   private async processAudio(buffer: Buffer): Promise<{ text: string; embedding: number[]; metadata: any }> {
-    const transcript = '[Audio transcript note: voice recording processed]';
+    // STT via AssemblyAI would be wired here; placeholder for now
+    const transcript = process.env.RAG_ASSEMBLYAI_API_KEY
+      ? '[Audio transcription placeholder]'
+      : '[STT not configured]';
     const embedding = await this.embeddingModel.encodeText(transcript);
     return { text: transcript, embedding, metadata: { duration: 0 } };
   }
 
   private async processPDF(buffer: Buffer): Promise<{ text: string; embedding: number[]; metadata: any }> {
-    let text = '';
-    let numpages = 1;
-    try {
-      const data = await pdfParse(buffer);
-      text = data.text;
-      numpages = data.numpages;
-    } catch (e) {
-      text = '[PDF extraction note]';
-    }
+    const data = await pdfParse(buffer);
+    const text = data.text;
     const embedding = await this.embeddingModel.encodeText(text);
-    return { text, embedding, metadata: { pageCount: numpages } };
+    return { text, embedding, metadata: { pageCount: data.numpages } };
   }
 
   async processAndIndex(
@@ -90,7 +81,7 @@ export class MultiModalProcessor {
     companyId: string
   ): Promise<void> {
     const processed = await this.processBuffer(buffer, mimeType, originalName);
-    const doc = {
+    const doc: VectorDocument = {
       id: uuidv4(),
       content: processed.textContent,
       embedding: processed.embedding,
@@ -100,7 +91,7 @@ export class MultiModalProcessor {
         sourceId,
         timestamp: new Date(),
         tags: [processed.type],
-        damageScore: processed.metadata.damageScore,
+        damageScore: processed.metadata?.damageScore,
         fileType: mimeType,
       },
     };

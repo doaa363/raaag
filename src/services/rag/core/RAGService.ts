@@ -5,9 +5,8 @@ import { QueryAnalyzer } from './QueryAnalyzer';
 import { HybridRetriever } from './HybridRetriever';
 import { CrossEncoderReranker } from './CrossEncoderReranker';
 import { LLMResponseGenerator } from './LLMResponseGenerator';
-import { RAGResponse, UserContext, Action } from '../../../types/rag.types';
+import { RAGResponse, UserContext, Action, VectorDocument, LiveMessageAnalysis } from '../../../types/rag.types';
 import { RAGInsight } from '../../../models/rag/RAGInsight.model';
-import mongoose from 'mongoose';
 
 export class RAGService {
   constructor(
@@ -25,25 +24,32 @@ export class RAGService {
     userContext: UserContext,
     options: { useCache?: boolean; temperature?: number } = {}
   ): Promise<RAGResponse> {
+    // 1. Check cache
     const cacheKey = await this.cache.computeKey(rawQuery, userContext);
     if (options.useCache !== false) {
       const cached = await this.cache.get(cacheKey);
       if (cached) return cached as RAGResponse;
     }
 
+    // 2. Analyze query
     const analyzed = await this.queryAnalyzer.analyze(rawQuery, userContext);
     const embedding = await this.embeddingModel.encodeText(rawQuery);
     analyzed.embedding = embedding;
 
+    // 3. Hybrid retrieval
     const rawDocs = await this.retriever.retrieve(analyzed, userContext, {
       vectorWeight: 0.6,
       keywordWeight: 0.3,
       graphWeight: 0.1,
     });
 
+    // 4. Rerank
     const rerankedDocs = await this.reranker.rerank(rawQuery, rawDocs, { topK: 10 });
+
+    // 5. Generate response
     const generated = await this.llmGenerator.generate(rawQuery, analyzed, rerankedDocs, userContext);
 
+    // 6. Build final response
     const response: RAGResponse = {
       response: generated.text,
       confidence: generated.confidence,
@@ -56,7 +62,10 @@ export class RAGService {
       },
     };
 
+    // 7. Store provenance
     await this.storeProvenance(userContext, rawQuery, response, rerankedDocs);
+
+    // 8. Cache
     await this.cache.set(cacheKey, response, { ttl: 300 });
 
     return response;
@@ -76,14 +85,6 @@ export class RAGService {
         });
       }
     }
-    if (actions.length === 0) {
-      actions.push({
-        type: 'CONTACT_DRIVER',
-        description: 'Verify shipment status with driver',
-        assignedTo: 'DISPATCHER',
-        priority: 2,
-      });
-    }
     return actions;
   }
 
@@ -91,43 +92,41 @@ export class RAGService {
     context: UserContext,
     query: string,
     response: RAGResponse,
-    docs: any[]
+    docs: VectorDocument[]
   ): Promise<void> {
     try {
-      if (mongoose.connection.readyState === 1) {
-        const insight = new RAGInsight({
-          insightType: 'RECOMMENDATION',
-          generatedFor: {
-            userId: context.userId,
-            companyId: context.companyId,
-            shipmentId: context.shipmentId,
-            incidentId: context.incidentId,
-          },
-          content: response.response,
-          structuredActions: response.suggestions,
-          confidence: response.confidence,
-          provenance: {
-            retrievedDocs: [],
-            prompt: response.provenance.prompt,
-            model: response.provenance.model,
-            timestamp: response.provenance.timestamp,
-          },
-        });
-        await insight.save();
-      }
-    } catch (e) {
-      // Ignore DB errors during fallback/standalone execution
+      const insight = new RAGInsight({
+        insightType: 'RECOMMENDATION',
+        generatedFor: {
+          userId: context.userId,
+          companyId: context.companyId,
+          shipmentId: context.shipmentId,
+          incidentId: context.incidentId,
+        },
+        content: response.response,
+        structuredActions: response.suggestions,
+        confidence: response.confidence,
+        provenance: {
+          retrievedDocs: response.provenance.retrievedDocIds,
+          prompt: response.provenance.prompt,
+          model: response.provenance.model,
+          timestamp: response.provenance.timestamp,
+        },
+      });
+      await insight.save();
+    } catch {
+      // MongoDB may be offline; provenance is non-critical
     }
   }
 
-  async analyzeLiveMessage(message: any, shipmentContext: any): Promise<Partial<RAGResponse> & { urgency?: string; autoReplyScore?: number; suggestedReply?: string }> {
+  async analyzeLiveMessage(message: any, shipmentContext: any): Promise<LiveMessageAnalysis> {
     const fullResponse = await this.query(message.text, {
       userId: message.senderId,
       companyId: shipmentContext.companyId,
       role: message.senderRole,
       shipmentId: message.shipmentId,
     });
-    const urgency = fullResponse.response.includes('urgent') ? 'HIGH' : 'LOW';
+    const urgency: 'LOW' | 'HIGH' = fullResponse.response.includes('urgent') ? 'HIGH' : 'LOW';
     return {
       urgency,
       suggestions: fullResponse.suggestions,

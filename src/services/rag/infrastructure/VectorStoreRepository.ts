@@ -47,7 +47,7 @@ export class VectorStoreRepository {
         },
       };
       await this.client.upsert(this.collectionName, { points: [point] });
-    } catch (error) {
+    } catch {
       // In-memory fallback updated above
     }
   }
@@ -75,6 +75,7 @@ export class VectorStoreRepository {
         with_payload: true,
       });
 
+      // Cast to any[] to handle varying Qdrant client response shapes
       return (response as any[]).map((point: any) => ({
         id: point.id as string,
         content: (point.payload?.content as string) || '',
@@ -89,7 +90,7 @@ export class VectorStoreRepository {
         },
         score: point.score,
       }));
-    } catch (error) {
+    } catch {
       // Fallback search over in-memory documents
       const docs = Array.from(this.inMemoryDocs.values()).filter(
         d => d.metadata.companyId === filter.companyId
@@ -110,7 +111,7 @@ export class VectorStoreRepository {
           must: [{ key: 'sourceId', match: { value: sourceId } }],
         },
       });
-    } catch (error) {
+    } catch {
       // Handled in-memory
     }
   }
@@ -120,7 +121,7 @@ export class VectorStoreRepository {
     try {
       await this.client.deleteCollection(this.collectionName);
       await this.ensureCollection();
-    } catch (error) {
+    } catch {
       // Handled in-memory
     }
   }

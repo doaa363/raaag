@@ -14,7 +14,7 @@ export class LLMResponseGenerator {
   private openai: OpenAI;
 
   constructor() {
-    this.openai = new OpenAI({ apiKey: config.rag.llmApiKey || 'dummy-key' });
+    this.openai = new OpenAI({ apiKey: config.rag.llmApiKey });
   }
 
   async generate(
@@ -23,7 +23,7 @@ export class LLMResponseGenerator {
     documents: VectorDocument[],
     context: UserContext
   ): Promise<GeneratedResponse> {
-    const docsText = documents.map((d, i) => `[${i+1}] ${d.content}`).join('\n');
+    const docsText = documents.map((d, i) => `[${i + 1}] ${d.content}`).join('\n');
     const prompt = `
 You are an AI assistant for a logistics company. Based on the following context, answer the user's query.
 Context:
@@ -36,7 +36,6 @@ Company: ${context.companyId}
 Provide a concise, actionable response. If you have recommendations, list them as actions.
 Response:`;
 
-    let text = '';
     try {
       const response = await this.openai.chat.completions.create({
         model: config.rag.llmModel || 'gpt-4-turbo',
@@ -47,16 +46,21 @@ Response:`;
         temperature: 0.3,
         max_tokens: 500,
       });
-      text = response.choices[0]?.message?.content || 'No response generated.';
-    } catch (error) {
-      text = `Analysis based on query "${rawQuery}": Context matched ${documents.length} relevant internal documents. Recommended action: verify driver status and update dispatch log.`;
-    }
 
-    return {
-      text,
-      confidence: 0.85,
-      promptUsed: prompt,
-      model: config.rag.llmModel || 'gpt-4-turbo',
-    };
+      const text = response.choices[0]?.message?.content || 'No response generated.';
+      return {
+        text,
+        confidence: 0.85,
+        promptUsed: prompt,
+        model: config.rag.llmModel || 'gpt-4-turbo',
+      };
+    } catch {
+      return {
+        text: 'LLM unavailable. Please check configuration.',
+        confidence: 0,
+        promptUsed: prompt,
+        model: config.rag.llmModel || 'gpt-4-turbo',
+      };
+    }
   }
 }

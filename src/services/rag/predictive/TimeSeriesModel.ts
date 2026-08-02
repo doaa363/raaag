@@ -17,7 +17,7 @@ export class TimeSeriesModel {
       const json = await fs.readFile(this.modelPath, 'utf-8');
       this.model = JSON.parse(json);
       console.log('TimeSeriesModel loaded successfully.');
-    } catch (error) {
+    } catch {
       console.warn('No pre‑trained model found. Using default prediction logic.');
       this.model = null;
     }

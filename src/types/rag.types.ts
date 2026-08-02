@@ -54,3 +54,10 @@ export interface ProcessedAttachment {
   embedding: number[];
   metadata: any;
 }
+
+export interface LiveMessageAnalysis {
+  urgency: 'LOW' | 'HIGH';
+  suggestions: Action[];
+  autoReplyScore: number;
+  suggestedReply?: string;
+}

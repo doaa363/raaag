@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { RAGService } from '../../services/rag/core/RAGService';
 import { Message } from '../../models/Message.model';
+import { LiveMessageAnalysis } from '../../types/rag.types';
 
 export function setupIncidentChatSocket(io: Server, ragService: RAGService) {
   io.on('connection', (socket: Socket) => {
@@ -23,7 +24,7 @@ export function setupIncidentChatSocket(io: Server, ragService: RAGService) {
 
         const shipmentContext = { companyId: companyId || 'defaultCompanyId' };
 
-        const analysis = await ragService.analyzeLiveMessage(message, shipmentContext);
+        const analysis: LiveMessageAnalysis = await ragService.analyzeLiveMessage(message, shipmentContext);
 
         if (analysis.urgency === 'HIGH') {
           io.to(`incident:${shipmentId}`).emit('urgency_alert', {
