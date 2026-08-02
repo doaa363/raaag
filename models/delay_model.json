@@ -1,0 +1,6 @@
+{
+  "modelType": "XGBoost",
+  "version": "1.0.0",
+  "features": ["driverHistory", "traffic", "weather", "hour", "day", "complexity"],
+  "weights": [0.1, 0.3, 0.2, 0.05, 0.05, 0.1]
+}
