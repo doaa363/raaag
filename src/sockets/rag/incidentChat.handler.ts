@@ -13,18 +13,19 @@ export function setupIncidentChatSocket(io: Server, ragService: RAGService) {
       const { shipmentId, text, senderId, senderRole, attachments, companyId } = data;
 
       try {
-        const message = await Message.create({
-          shipmentId,
-          senderId,
-          senderRole,
-          text,
-          attachments,
-          timestamp: new Date(),
-        });
+        let messageDoc: any = { _id: null, shipmentId, senderId, senderRole, text, attachments };
+        try {
+          messageDoc = await Message.create({
+            shipmentId, senderId, senderRole, text, attachments, timestamp: new Date(),
+          });
+        } catch {
+          // MongoDB offline — continue with in-memory message object
+        }
 
         const shipmentContext = { companyId: companyId || 'defaultCompanyId' };
+        const analysis: LiveMessageAnalysis = await ragService.analyzeLiveMessage(messageDoc, shipmentContext);
 
-        const analysis: LiveMessageAnalysis = await ragService.analyzeLiveMessage(message, shipmentContext);
+        socket.emit('message_received', { messageId: messageDoc._id, text, timestamp: new Date() });
 
         if (analysis.urgency === 'HIGH') {
           io.to(`incident:${shipmentId}`).emit('urgency_alert', {
@@ -37,15 +38,16 @@ export function setupIncidentChatSocket(io: Server, ragService: RAGService) {
           });
         }
 
-        if (analysis.autoReplyScore && analysis.autoReplyScore > 0.8) {
+        if (analysis.autoReplyScore > 0.8) {
           io.to(`incident:${shipmentId}`).emit('suggested_reply', {
-            messageId: message._id,
+            messageId: messageDoc._id,
             suggestedReply: analysis.suggestedReply,
             confidence: analysis.autoReplyScore,
           });
         }
       } catch (err) {
         console.error('Error handling incident chat message:', err);
+        socket.emit('error', { message: 'Failed to process message' });
       }
     });
   });

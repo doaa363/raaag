@@ -63,7 +63,11 @@ const reportWorker = new ScheduledReportWorker(reportGenerator);
 const activeLearningWorker = new ActiveLearningWorker();
 
 // API Routes
-app.use('/api/v1/rag', setupRagRoutes(ragService));
+app.use('/api/v1/rag', setupRagRoutes(ragService, embeddingModel, vectorStore));
+
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', service: 'RAG', version: '1.0.0' });
+});
 
 export function getIO(): SocketIOServer | null {
   return io;

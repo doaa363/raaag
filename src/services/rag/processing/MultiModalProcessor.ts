@@ -1,11 +1,23 @@
 import Tesseract from 'tesseract.js';
 import pdfParse from 'pdf-parse';
+import { AssemblyAI } from 'assemblyai';
+import * as tf from '@tensorflow/tfjs';
+import * as mobilenet from '@tensorflow-models/mobilenet';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { EmbeddingModel } from '../infrastructure/EmbeddingModel';
 import { VectorStoreRepository } from '../infrastructure/VectorStoreRepository';
 import { ProcessedAttachment, VectorDocument } from '../../../types/rag.types';
 import { v4 as uuidv4 } from 'uuid';
 
 const DAMAGE_KEYWORDS = ['damaged', 'broken', 'crushed', 'wet', 'torn'];
+const DAMAGE_LABELS = ['broken', 'cracked', 'crushed', 'torn', 'wet', 'damaged', 'wreck', 'ruin'];
+let mobilenetModel: mobilenet.MobileNet | null = null;
+async function getMobileNet(): Promise<mobilenet.MobileNet> {
+  if (!mobilenetModel) mobilenetModel = await mobilenet.load();
+  return mobilenetModel;
+}
 
 export class MultiModalProcessor {
   private embeddingModel: EmbeddingModel;
@@ -16,7 +28,12 @@ export class MultiModalProcessor {
     this.vectorStore = vectorStore;
   }
 
-  async processBuffer(buffer: Buffer, mimeType: string, originalName: string): Promise<ProcessedAttachment> {
+  async processBuffer(
+    buffer: Buffer,
+    mimeType: string,
+    originalName: string,
+    overrideType?: ProcessedAttachment['type']
+  ): Promise<ProcessedAttachment> {
     let textContent = '';
     let embedding: number[] = [];
     let type: ProcessedAttachment['type'] = 'DOCUMENT';
@@ -45,25 +62,58 @@ export class MultiModalProcessor {
       embedding = await this.embeddingModel.encodeText(textContent);
     }
 
-    return { type, textContent, embedding, metadata };
+    return { type: overrideType ?? type, textContent, embedding, metadata };
+  }
+
+  private async classifyDamage(buffer: Buffer): Promise<number> {
+    try {
+      const model = await getMobileNet();
+      // tf.node (tfjs-node) required for decoding raw image buffers in Node.js
+      // Falls back to 0 if native bindings unavailable; keyword scoring handles detection
+      const tfNode = (tf as any).node;
+      if (!tfNode?.decodeImage) return 0;
+      const tensor = tfNode.decodeImage(buffer) as tf.Tensor3D;
+      const predictions = await model.classify(tensor);
+      tensor.dispose();
+      return predictions
+        .filter((p: { className: string; probability: number }) =>
+          DAMAGE_LABELS.some(l => p.className.toLowerCase().includes(l)))
+        .reduce((max: number, p: { probability: number }) => Math.max(max, p.probability), 0);
+    } catch {
+      return 0;
+    }
   }
 
   private async processImage(buffer: Buffer): Promise<{ text: string; embedding: number[]; type: ProcessedAttachment['type']; metadata: any }> {
     const ocrResult = await Tesseract.recognize(buffer, process.env.RAG_TESSERACT_LANG || 'ara+eng');
     const text = ocrResult.data.text;
     const embedding = await this.embeddingModel.encodeText(text);
-    const damageScore = DAMAGE_KEYWORDS.some(kw => text.toLowerCase().includes(kw)) ? 0.85 : 0.1;
+    const keywordScore = DAMAGE_KEYWORDS.some(kw => text.toLowerCase().includes(kw)) ? 0.85 : 0;
+    const mlScore = await this.classifyDamage(buffer);
+    const damageScore = Math.max(keywordScore, mlScore);
     const type: ProcessedAttachment['type'] = damageScore > 0.5 ? 'DAMAGED_PARCEL' : 'RECEIPT';
-    return { text, embedding, type, metadata: { damageScore, pageCount: 1 } };
+    return { text, embedding, type, metadata: { damageScore: damageScore || 0.1, pageCount: 1 } };
   }
 
   private async processAudio(buffer: Buffer): Promise<{ text: string; embedding: number[]; metadata: any }> {
-    // STT via AssemblyAI would be wired here; placeholder for now
-    const transcript = process.env.RAG_ASSEMBLYAI_API_KEY
-      ? '[Audio transcription placeholder]'
-      : '[STT not configured]';
-    const embedding = await this.embeddingModel.encodeText(transcript);
-    return { text: transcript, embedding, metadata: { duration: 0 } };
+    const apiKey = process.env.RAG_ASSEMBLYAI_API_KEY;
+    if (!apiKey) {
+      const transcript = '[STT not configured]';
+      const embedding = await this.embeddingModel.encodeText(transcript);
+      return { text: transcript, embedding, metadata: { duration: 0 } };
+    }
+    // Write buffer to a temp file so AssemblyAI SDK can upload it
+    const tmpPath = path.join(os.tmpdir(), `audio-${uuidv4()}.tmp`);
+    try {
+      fs.writeFileSync(tmpPath, buffer);
+      const client = new AssemblyAI({ apiKey });
+      const result = await client.transcripts.transcribe({ audio: tmpPath });
+      const transcript = result.text ?? '';
+      const embedding = await this.embeddingModel.encodeText(transcript);
+      return { text: transcript, embedding, metadata: { duration: result.audio_duration ?? 0 } };
+    } finally {
+      fs.rmSync(tmpPath, { force: true });
+    }
   }
 
   private async processPDF(buffer: Buffer): Promise<{ text: string; embedding: number[]; metadata: any }> {
@@ -78,9 +128,10 @@ export class MultiModalProcessor {
     mimeType: string,
     originalName: string,
     sourceId: string,
-    companyId: string
-  ): Promise<void> {
-    const processed = await this.processBuffer(buffer, mimeType, originalName);
+    companyId: string,
+    overrideType?: ProcessedAttachment['type']
+  ): Promise<ProcessedAttachment> {
+    const processed = await this.processBuffer(buffer, mimeType, originalName, overrideType);
     const doc: VectorDocument = {
       id: uuidv4(),
       content: processed.textContent,
@@ -96,5 +147,6 @@ export class MultiModalProcessor {
       },
     };
     await this.vectorStore.insert(doc);
+    return processed;
   }
 }

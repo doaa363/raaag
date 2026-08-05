@@ -120,18 +120,24 @@ export class RAGService {
   }
 
   async analyzeLiveMessage(message: any, shipmentContext: any): Promise<LiveMessageAnalysis> {
+    const analyzed = await this.queryAnalyzer.analyze(message.text, {
+      userId: message.senderId,
+      companyId: shipmentContext.companyId,
+      role: message.senderRole,
+    });
     const fullResponse = await this.query(message.text, {
       userId: message.senderId,
       companyId: shipmentContext.companyId,
       role: message.senderRole,
       shipmentId: message.shipmentId,
     });
-    const urgency: 'LOW' | 'HIGH' = fullResponse.response.includes('urgent') ? 'HIGH' : 'LOW';
+    const urgency: 'LOW' | 'HIGH' =
+      analyzed.entities.urgency === 'HIGH' || analyzed.entities.urgency === 'CRITICAL' ? 'HIGH' : 'LOW';
     return {
       urgency,
       suggestions: fullResponse.suggestions,
-      autoReplyScore: fullResponse.confidence > 0.8 ? 0.9 : 0.3,
-      suggestedReply: fullResponse.confidence > 0.8 ? fullResponse.response : undefined,
+      autoReplyScore: fullResponse.confidence > 0.7 ? 0.9 : 0.3,
+      suggestedReply: fullResponse.confidence > 0.7 ? fullResponse.response : undefined,
     };
   }
 }

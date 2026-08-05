@@ -1,0 +1,1 @@
+Driver performance report Q1: Average on-time delivery rate is 78%. Top issues reported by drivers: unclear delivery instructions (42%), parking difficulties (31%), customer unavailability (27%). Escalation protocol: if delivery fails twice, escalate to dispatcher for manual intervention. Customer satisfaction score dropped 12% in urban zones due to repeated missed deliveries.

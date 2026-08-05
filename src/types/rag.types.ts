@@ -1,4 +1,3 @@
-import { Types } from 'mongoose';
 
 export type InsightType = 'RECOMMENDATION' | 'PREDICTIVE_ALERT' | 'EXECUTIVE_SUMMARY' | 'ESCALATION_BRIEF';
 

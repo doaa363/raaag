@@ -1,15 +1,41 @@
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import path from 'path';
 import { RAGService } from '../../../services/rag/core/RAGService';
+import { EmbeddingModel } from '../../../services/rag/infrastructure/EmbeddingModel';
+import { VectorStoreRepository } from '../../../services/rag/infrastructure/VectorStoreRepository';
+import { MultiModalProcessor } from '../../../services/rag/processing/MultiModalProcessor';
+import { ProcessedAttachment } from '../../../types/rag.types';
 import { authenticate } from '../../../middleware/auth';
 import { rateLimit } from 'express-rate-limit';
 import { RAGInsight } from '../../../models/rag/RAGInsight.model';
 import { RAGFeedback } from '../../../models/rag/RAGFeedback.model';
 import { ExecutiveReport } from '../../../models/rag/ExecutiveReport.model';
 
+const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'audio/mpeg', 'audio/wav'];
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, process.env.UPLOADS_DIR || './uploads/incidents'),
+    filename: (_req, file, cb) => {
+      const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+      cb(null, `${unique}${path.extname(file.originalname)}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_MIMES.includes(file.mimetype)) cb(null, true);
+    else cb(new Error(`Unsupported file type: ${file.mimetype}`));
+  },
+});
+
 const router = Router();
 const limiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
 
-export default (ragService: RAGService) => {
+export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorStore?: VectorStoreRepository) => {
+  const multiModalProcessor = embeddingModel && vectorStore
+    ? new MultiModalProcessor(embeddingModel, vectorStore)
+    : null;
   router.post('/query', authenticate, limiter, async (req: Request, res: Response) => {
     try {
       const { query, options, shipmentId, incidentId } = req.body;
@@ -124,7 +150,43 @@ export default (ragService: RAGService) => {
     }
   });
 
-  router.get('/health', (req, res) => {
+  router.post('/upload', authenticate, (req: Request, res: Response, next: any) => {
+    upload.single('file')(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      next();
+    });
+  }, async (req: Request, res: Response) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!multiModalProcessor) return res.status(503).json({ error: 'MultiModal processor unavailable' });
+    try {
+      const { sourceId: bodySourceId, companyId: bodyCompanyId, shipmentId, incidentId, type } = req.body;
+      const sourceId = bodySourceId || shipmentId || incidentId || 'unknown';
+      const companyId = bodyCompanyId || req.user!.companyId;
+      const buffer = require('fs').readFileSync(req.file.path);
+      const processed = await multiModalProcessor.processAndIndex(
+        buffer,
+        req.file.mimetype,
+        req.file.originalname,
+        sourceId,
+        companyId,
+        type as ProcessedAttachment['type'] | undefined
+      );
+      require('fs').rmSync(req.file.path, { force: true });
+      res.status(201).json({
+        message: 'File processed and indexed',
+        filename: req.file.originalname,
+        sourceId,
+        contentType: 'ATTACHMENT',
+        type: processed.type,
+        metadata: processed.metadata,
+      });
+    } catch (error: any) {
+      if (req.file?.path) require('fs').rmSync(req.file.path, { force: true });
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  router.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'RAG' });
   });
 
