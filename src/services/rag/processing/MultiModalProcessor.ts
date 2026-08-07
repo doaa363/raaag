@@ -60,6 +60,7 @@ export class MultiModalProcessor {
     } else {
       textContent = buffer.toString('utf-8').slice(0, 500);
       embedding = await this.embeddingModel.encodeText(textContent);
+      metadata = { mimeType };
     }
 
     return { type: overrideType ?? type, textContent, embedding, metadata };

@@ -14,6 +14,10 @@ export class ActiveLearningWorker {
     this.reranker = new CrossEncoderReranker();
     this.vectorStore = new VectorStoreRepository();
 
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+
     try {
       this.worker = new Worker(
         'rag-active-learning',

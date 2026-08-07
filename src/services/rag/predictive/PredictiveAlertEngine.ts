@@ -2,7 +2,6 @@ import { TimeSeriesModel } from './TimeSeriesModel';
 import { RAGService } from '../core/RAGService';
 import { Shipment } from '../../../models/Shipment.model';
 import { Alert } from '../../../models/Alert.model';
-import { getIO } from '../../../app';
 
 export class PredictiveAlertEngine {
   constructor(
@@ -61,7 +60,11 @@ export class PredictiveAlertEngine {
           console.warn('[alert-engine] MongoDB unavailable — alert not persisted.');
         }
 
-        const io = getIO();
+        let io: any;
+        try {
+          const appModule = require('../../../app');
+          io = appModule.getIO ? appModule.getIO() : null;
+        } catch {}
         if (io) {
           io.to(`company:${companyId}`).emit('predictive_alert', {
             shipmentId: shipment._id ?? shipment.trackingNumber,

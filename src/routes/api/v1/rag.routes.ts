@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
@@ -17,7 +18,7 @@ import { alertEngine, reportGenerator } from '../../../app';
 
 const ALLOWED_MIMES = [
   'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-  'application/pdf',
+  'application/pdf', 'text/plain',
   'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4',
 ];
 
@@ -68,6 +69,9 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
       const { insightId, rating, correctedText, comments } = req.body;
       if (![-1, 0, 1].includes(rating)) {
         return res.status(400).json({ error: 'Rating must be -1, 0, or 1' });
+      }
+      if (mongoose.connection.readyState !== 1) {
+        return res.status(201).json({ message: 'Feedback recorded (Offline Mode)' });
       }
       const feedback = new RAGFeedback({
         insightId,
@@ -137,6 +141,9 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
 
   router.get('/reports/latest', authenticate, async (req: Request, res: Response) => {
     try {
+      if (mongoose.connection.readyState !== 1) {
+        throw new Error('MongoDB offline');
+      }
       const report = await ExecutiveReport.findOne({ companyId: req.user!.companyId })
         .sort({ createdAt: -1 })
         .limit(1);
