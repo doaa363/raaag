@@ -4,7 +4,9 @@ import { Server as SocketIOServer } from 'socket.io';
 import mongoose from 'mongoose';
 import helmet from 'helmet';
 import compression from 'compression';
+import swaggerUi from 'swagger-ui-express';
 import config from './config';
+import { swaggerSpec } from './config/swagger';
 
 import { EmbeddingModel } from './services/rag/infrastructure/EmbeddingModel';
 import { VectorStoreRepository } from './services/rag/infrastructure/VectorStoreRepository';
@@ -31,9 +33,16 @@ const app = express();
 const server = http.createServer(app);
 let io: SocketIOServer | null = null;
 
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(compression());
 app.use(express.json());
+
+// API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
+app.get('/api-docs.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
 
 // Service Instantiation
 const embeddingModel = new EmbeddingModel();

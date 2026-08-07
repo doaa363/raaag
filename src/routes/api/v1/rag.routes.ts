@@ -46,6 +46,50 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
   const multiModalProcessor = embeddingModel && vectorStore
     ? new MultiModalProcessor(embeddingModel, vectorStore)
     : null;
+
+  /**
+   * @swagger
+   * /rag/query:
+   *   post:
+   *     summary: Query the RAG system
+   *     description: Submit a natural language query to the Retrieval-Augmented Generation system. Returns an AI-generated response with suggestions and provenance information.
+   *     tags: [RAG]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/RAGQueryRequest'
+   *           example:
+   *             query: "What is the status of shipment SHP-1234?"
+   *             shipmentId: "SHP-1234"
+   *             options:
+   *               useCache: true
+   *               temperature: 0.7
+   *     responses:
+   *       200:
+   *         description: Successful RAG response
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/RAGQueryResponse'
+   *       401:
+   *         description: Unauthorized — missing or invalid bearer token
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       429:
+   *         description: Rate limit exceeded (30 req/min)
+   *       500:
+   *         description: Internal server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   */
   router.post('/query', authenticate, limiter, async (req: Request, res: Response) => {
     try {
       const { query, options, shipmentId, incidentId } = req.body;
@@ -64,6 +108,47 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
     }
   });
 
+  /**
+   * @swagger
+   * /rag/feedback/rate:
+   *   post:
+   *     summary: Submit feedback on a RAG insight
+   *     description: Rate a previously generated RAG insight as helpful (1), neutral (0), or unhelpful (-1). Optionally provide corrected text and comments. Used by the Active Learning Worker to improve future responses.
+   *     tags: [Feedback]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/FeedbackRequest'
+   *           example:
+   *             insightId: "665f1a2b3c4d5e6f7a8b9c0d"
+   *             rating: 1
+   *             comments: "Very accurate and helpful response."
+   *     responses:
+   *       201:
+   *         description: Feedback recorded successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Feedback recorded"
+   *       400:
+   *         description: Invalid rating value
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       401:
+   *         description: Unauthorized
+   *       500:
+   *         description: Internal server error
+   */
   router.post('/feedback/rate', authenticate, async (req: Request, res: Response) => {
     try {
       const { insightId, rating, correctedText, comments } = req.body;
@@ -87,6 +172,39 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
     }
   });
 
+  /**
+   * @swagger
+   * /rag/escalation/brief:
+   *   post:
+   *     summary: Generate an escalation brief for an incident
+   *     description: Creates a structured escalation brief for a given incident, including summary, critical decision points, recommended action, financial impact, and expected outcome.
+   *     tags: [Escalation]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/EscalationBriefRequest'
+   *           example:
+   *             incidentId: "INC-4521"
+   *     responses:
+   *       200:
+   *         description: Escalation brief generated and saved
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/EscalationBriefResponse'
+   *       401:
+   *         description: Unauthorized
+   *       500:
+   *         description: Internal server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   */
   router.post('/escalation/brief', authenticate, async (req: Request, res: Response) => {
     try {
       const { incidentId } = req.body;
@@ -120,6 +238,40 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
     }
   });
 
+  /**
+   * @swagger
+   * /rag/reports/generate:
+   *   post:
+   *     summary: Generate an executive report
+   *     description: Triggers the Executive Report Generator to compile KPIs, RAG insights, and analytics for a specified time window, saving the result to MongoDB and generating a PDF file.
+   *     tags: [Reports]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/ReportRequest'
+   *           example:
+   *             start: "2025-07-01T00:00:00.000Z"
+   *             end: "2025-07-31T23:59:59.999Z"
+   *     responses:
+   *       201:
+   *         description: Report generated successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ReportResponse'
+   *       401:
+   *         description: Unauthorized
+   *       500:
+   *         description: Internal server error
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   */
   router.post('/reports/generate', authenticate, async (req: Request, res: Response) => {
     try {
       const { start, end, companyId } = req.body;
@@ -139,6 +291,41 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
     }
   });
 
+  /**
+   * @swagger
+   * /rag/reports/latest:
+   *   get:
+   *     summary: Get the latest executive report
+   *     description: Retrieves the most recently generated executive report for the authenticated user's company. Falls back to disk cache if MongoDB is offline.
+   *     tags: [Reports]
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Latest executive report object (or null if none exists)
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               nullable: true
+   *               properties:
+   *                 _id:
+   *                   type: string
+   *                 title:
+   *                   type: string
+   *                 summary:
+   *                   type: string
+   *                 keyFindings:
+   *                   type: array
+   *                   items:
+   *                     type: string
+   *                 pdfUrl:
+   *                   type: string
+   *       401:
+   *         description: Unauthorized
+   *       500:
+   *         description: Internal server error
+   */
   router.get('/reports/latest', authenticate, async (req: Request, res: Response) => {
     try {
       if (mongoose.connection.readyState !== 1) {
@@ -175,6 +362,48 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
     }
   });
 
+  /**
+   * @swagger
+   * /rag/provenance/{insightId}:
+   *   get:
+   *     summary: Get provenance details for an insight
+   *     description: Returns the full provenance chain for a stored RAG insight, including retrieved source documents, the prompt used, and model metadata. Access is restricted to the owning company.
+   *     tags: [RAG]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: insightId
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: MongoDB ObjectId of the RAGInsight document
+   *         example: "665f1a2b3c4d5e6f7a8b9c0d"
+   *     responses:
+   *       200:
+   *         description: Insight provenance object
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 _id:
+   *                   type: string
+   *                 insightType:
+   *                   type: string
+   *                 content:
+   *                   type: string
+   *                 confidence:
+   *                   type: number
+   *                 provenance:
+   *                   type: object
+   *       403:
+   *         description: Access denied — insight belongs to a different company
+   *       404:
+   *         description: Insight not found
+   *       401:
+   *         description: Unauthorized
+   */
   router.get('/provenance/:insightId', authenticate, async (req: Request, res: Response) => {
     try {
       const insight = await RAGInsight.findById(req.params.insightId)
@@ -189,6 +418,54 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
     }
   });
 
+  /**
+   * @swagger
+   * /rag/upload:
+   *   post:
+   *     summary: Upload a file for multimodal processing and indexing
+   *     description: Accepts images (JPEG, PNG, GIF, WebP), PDFs, plain text, or audio files (MP3, WAV, OGG, MP4). The file is processed by the MultiModal Processor (OCR, image classification, audio transcription, or PDF text extraction) and the resulting embedding is indexed into the vector store.
+   *     tags: [RAG]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         multipart/form-data:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - file
+   *             properties:
+   *               file:
+   *                 type: string
+   *                 format: binary
+   *                 description: The file to upload (max 10 MB)
+   *               sourceId:
+   *                 type: string
+   *                 description: Source entity ID (shipment, incident, etc.)
+   *               companyId:
+   *                 type: string
+   *               type:
+   *                 type: string
+   *                 enum: [RECEIPT, DAMAGED_PARCEL, SIGNATURE, DOCUMENT, VOICE_NOTE]
+   *     responses:
+   *       201:
+   *         description: File processed and indexed successfully
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/UploadResponse'
+   *       400:
+   *         description: Invalid file type, file too large, or no file provided
+   *         content:
+   *           application/json:
+   *             schema:
+   *               $ref: '#/components/schemas/ErrorResponse'
+   *       401:
+   *         description: Unauthorized
+   *       503:
+   *         description: MultiModal processor unavailable
+   */
   router.post('/upload', authenticate, (req: Request, res: Response, next: any) => {
     upload.single('file')(req, res, (err) => {
       if (err) return res.status(400).json({ error: err.message });
@@ -225,6 +502,53 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
     }
   });
 
+  /**
+   * @swagger
+   * /rag/alerts/scan:
+   *   post:
+   *     summary: Trigger predictive alert scan
+   *     description: Runs the Predictive Alert Engine against a company's shipments. If a `shipments` array is provided in the body, those objects are scanned directly (useful for offline/test scenarios). Otherwise, the engine loads shipments from MongoDB and scans the full company fleet.
+   *     tags: [Alerts]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             allOf:
+   *               - $ref: '#/components/schemas/AlertScanRequest'
+   *               - type: object
+   *                 properties:
+   *                   shipments:
+   *                     type: array
+   *                     description: Optional array of shipment objects to scan directly (offline/test mode)
+   *                     items:
+   *                       type: object
+   *           example:
+   *             companyId: "COMP-001"
+   *     responses:
+   *       200:
+   *         description: Scan completed
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Scan completed"
+   *                 companyId:
+   *                   type: string
+   *                 results:
+   *                   type: array
+   *                   items:
+   *                     type: object
+   *       401:
+   *         description: Unauthorized
+   *       500:
+   *         description: Internal server error
+   */
   router.post('/alerts/scan', authenticate, async (req: Request, res: Response) => {
     try {
       const { companyId, shipments } = req.body;
@@ -246,6 +570,29 @@ export default (ragService: RAGService, embeddingModel?: EmbeddingModel, vectorS
     }
   });
 
+  /**
+   * @swagger
+   * /rag/health:
+   *   get:
+   *     summary: RAG service health check
+   *     description: Returns a simple status object confirming the RAG service is running. Does not require authentication.
+   *     tags: [System]
+   *     security: []
+   *     responses:
+   *       200:
+   *         description: Service is healthy
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: "ok"
+   *                 service:
+   *                   type: string
+   *                   example: "RAG"
+   */
   router.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'RAG' });
   });
