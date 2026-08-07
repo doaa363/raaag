@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: logiCore-rag-ingress
+  namespace: logiCore
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+    - hosts:
+        - rag-api.logiCore.com
+      secretName: rag-tls
+  rules:
+    - host: rag-api.logiCore.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: logiCore-rag-service
+                port:
+                  number: 80

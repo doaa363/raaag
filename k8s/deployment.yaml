@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logiCore-rag
+  namespace: logiCore
+  labels:
+    app: logiCore-rag
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: logiCore-rag
+  template:
+    metadata:
+      labels:
+        app: logiCore-rag
+    spec:
+      containers:
+        - name: rag-app
+          image: logiCore/rag:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3000"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: uri
+            - name: RAG_LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: openai-secret
+                  key: apiKey
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: secret
+            - name: RAG_VECTOR_DB_URL
+              value: "http://qdrant-service:6333"
+            - name: RAG_REDIS_URL
+              value: "redis://redis-service:6379"
+            - name: REPORTS_DIR
+              value: "/app/reports"
+            - name: UPLOADS_DIR
+              value: "/app/uploads/incidents"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          volumeMounts:
+            - name: reports
+              mountPath: /app/reports
+            - name: uploads
+              mountPath: /app/uploads/incidents
+      volumes:
+        - name: reports
+          persistentVolumeClaim:
+            claimName: reports-pvc
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: uploads-pvc

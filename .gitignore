@@ -12,6 +12,10 @@ build/
 .env
 .env.local
 .env.*.local
+.env.production
+
+# Kubernetes secrets (real values — template is safe to commit)
+k8s/secrets.yaml
 
 # Logs
 logs/
