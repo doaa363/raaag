@@ -55,7 +55,7 @@ export const ragService = new RAGService(
 );
 
 const timeSeriesModel = new TimeSeriesModel();
-const alertEngine = new PredictiveAlertEngine(timeSeriesModel, ragService);
+export const alertEngine = new PredictiveAlertEngine(timeSeriesModel, ragService);
 const reportGenerator = new ExecutiveReportGenerator(ragService);
 
 const alertScanner = new PredictiveAlertScanner(alertEngine);

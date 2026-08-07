@@ -1,7 +1,7 @@
 import Tesseract from 'tesseract.js';
 import pdfParse from 'pdf-parse';
 import { AssemblyAI } from 'assemblyai';
-import * as tf from '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs'; // tfjs-node cannot be built on Node v24/Windows without VS; use graceful fallback
 import * as mobilenet from '@tensorflow-models/mobilenet';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -67,11 +67,12 @@ export class MultiModalProcessor {
 
   private async classifyDamage(buffer: Buffer): Promise<number> {
     try {
-      const model = await getMobileNet();
-      // tf.node (tfjs-node) required for decoding raw image buffers in Node.js
-      // Falls back to 0 if native bindings unavailable; keyword scoring handles detection
+      // tf.node.decodeImage only exists in @tensorflow/tfjs-node (native bindings).
+      // On environments without native bindings (Node v24 / no Visual Studio),
+      // this returns 0 and keyword scoring in processImage handles detection.
       const tfNode = (tf as any).node;
       if (!tfNode?.decodeImage) return 0;
+      const model = await getMobileNet();
       const tensor = tfNode.decodeImage(buffer) as tf.Tensor3D;
       const predictions = await model.classify(tensor);
       tensor.dispose();
@@ -79,7 +80,8 @@ export class MultiModalProcessor {
         .filter((p: { className: string; probability: number }) =>
           DAMAGE_LABELS.some(l => p.className.toLowerCase().includes(l)))
         .reduce((max: number, p: { probability: number }) => Math.max(max, p.probability), 0);
-    } catch {
+    } catch (err) {
+      console.warn('classifyDamage: ML scoring unavailable, using keyword fallback', err);
       return 0;
     }
   }

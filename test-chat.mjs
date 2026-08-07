@@ -37,12 +37,20 @@ socket.on('connect', () => {
     });
   }, 3000);
 
-  // Disconnect after tests
+  // Disconnect after tests — wait long enough for async RAG analysis to complete
   setTimeout(() => {
     console.log('\n[done] disconnecting.');
     socket.disconnect();
     process.exit(0);
-  }, 8000);
+  }, 20000);
+});
+
+socket.on('room_joined', (data) => {
+  console.log('[room_joined]', JSON.stringify(data));
+});
+
+socket.on('new_message', (data) => {
+  console.log('\n📩 [new_message]', JSON.stringify(data, null, 2));
 });
 
 socket.on('message_received', (data) => {
