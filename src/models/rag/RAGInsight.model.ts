@@ -68,4 +68,4 @@ const RAGInsightSchema = new Schema<IRAGInsight>(
 RAGInsightSchema.index({ 'generatedFor.companyId': 1, insightType: 1 });
 RAGInsightSchema.index({ 'generatedFor.userId': 1 });
 
-export const RAGInsight = mongoose.model<IRAGInsight>('RAGInsight', RAGInsightSchema);
+export const RAGInsight = mongoose.models.RAGInsight || mongoose.model<IRAGInsight>('RAGInsight', RAGInsightSchema);

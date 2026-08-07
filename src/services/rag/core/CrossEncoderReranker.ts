@@ -9,4 +9,8 @@ export class CrossEncoderReranker {
     scored.sort((a, b) => (b.score || 0) - (a.score || 0));
     return scored.slice(0, options.topK);
   }
+
+  async fineTune(dataset: { query: string; response: string; label: number }[]): Promise<void> {
+    console.log(`[CrossEncoderReranker] Stub fineTune executed with ${dataset.length} samples.`);
+  }
 }

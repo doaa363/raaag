@@ -21,4 +21,4 @@ const RAGFeedbackSchema = new Schema<IRAGFeedback>(
 
 RAGFeedbackSchema.index({ insightId: 1, userId: 1 }, { unique: true });
 
-export const RAGFeedback = mongoose.model<IRAGFeedback>('RAGFeedback', RAGFeedbackSchema);
+export const RAGFeedback = mongoose.models.RAGFeedback || mongoose.model<IRAGFeedback>('RAGFeedback', RAGFeedbackSchema);
