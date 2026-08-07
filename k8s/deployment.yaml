@@ -43,8 +43,32 @@ spec:
                   key: secret
             - name: RAG_VECTOR_DB_URL
               value: "http://qdrant-service:6333"
+            - name: RAG_VECTOR_DB_TYPE
+              value: "qdrant"
+            - name: RAG_VECTOR_INDEX_NAME
+              value: "logiCore_embeddings"
+            - name: RAG_VECTOR_DIMENSIONS
+              value: "1536"
+            - name: RAG_EMBEDDING_MODEL
+              value: "text-embedding-3-small"
+            - name: RAG_LLM_PROVIDER
+              value: "openai"
+            - name: RAG_LLM_MODEL
+              value: "gpt-4-turbo"
             - name: RAG_REDIS_URL
               value: "redis://redis-service:6379"
+            - name: RAG_CACHE_TTL_SECONDS
+              value: "300"
+            - name: RAG_TESSERACT_LANG
+              value: "ara+eng"
+            - name: RAG_CROSS_ENCODER_MODEL
+              value: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+            - name: RAG_ASSEMBLYAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: assemblyai-secret
+                  key: apiKey
+                  optional: true
             - name: REPORTS_DIR
               value: "/app/reports"
             - name: UPLOADS_DIR

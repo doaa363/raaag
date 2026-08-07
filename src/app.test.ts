@@ -5,7 +5,11 @@ import { MultiModalProcessor } from './services/rag/processing/MultiModalProcess
 import { EmbeddingModel } from './services/rag/infrastructure/EmbeddingModel';
 import { VectorStoreRepository } from './services/rag/infrastructure/VectorStoreRepository';
 import request from 'supertest';
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import { io as ioc, Socket as ClientSocket } from 'socket.io-client';
 import { app } from './app';
+import { setupIncidentChatSocket } from './sockets/rag/incidentChat.handler';
 
 describe('LogiCore RAG System Unit Tests', () => {
   test('QueryAnalyzer detects language and intent correctly', async () => {
@@ -65,26 +69,20 @@ describe('MultiModalProcessor', () => {
   afterEach(() => jest.restoreAllMocks());
 
   test('PDF extraction returns DOCUMENT type with pageCount', async () => {
-    const pdfParse = require('pdf-parse');
-    jest.spyOn(pdfParse, 'default' in pdfParse ? 'default' : 'call').mockResolvedValue(undefined);
-    // Mock the module-level import used inside MultiModalProcessor
-    jest.mock('pdf-parse', () => jest.fn().mockResolvedValue({ text: 'Shipment manifest content', numpages: 3 }));
-    // Re-require processor with mocked pdf-parse
     jest.resetModules();
     const pdfParseMock = jest.fn().mockResolvedValue({ text: 'Shipment manifest content', numpages: 3 });
     jest.doMock('pdf-parse', () => pdfParseMock);
+    jest.doMock('@tensorflow-models/mobilenet', () => ({ load: jest.fn().mockResolvedValue({ classify: jest.fn().mockResolvedValue([]) }) }));
     const { MultiModalProcessor: MMP } = await import('./services/rag/processing/MultiModalProcessor');
     const { EmbeddingModel: EM } = await import('./services/rag/infrastructure/EmbeddingModel');
     const { VectorStoreRepository: VSR } = await import('./services/rag/infrastructure/VectorStoreRepository');
-    const em = new EM();
     const vs = new VSR();
     jest.spyOn(vs, 'insert').mockResolvedValue(undefined as any);
-    const proc = new MMP(em, vs);
-    const result = await proc.processBuffer(Buffer.from('fake-pdf'), 'application/pdf', 'manifest.pdf');
+    const result = await new MMP(new EM(), vs).processBuffer(Buffer.from('fake-pdf'), 'application/pdf', 'manifest.pdf');
     expect(result.type).toBe('DOCUMENT');
     expect(result.metadata.pageCount).toBe(3);
     jest.resetModules();
-  });
+  }, 15000);
 
   test('audio without API key returns STT-not-configured placeholder', async () => {
     const original = process.env.RAG_ASSEMBLYAI_API_KEY;

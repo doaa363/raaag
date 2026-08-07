@@ -11,11 +11,12 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - MONGODB_URI=${MONGODB_URI}
+      - MONGODB_URI=${MONGODB_URI:-mongodb://admin:password@mongodb:27017/logiCore_rag?authSource=admin}
       - RAG_LLM_API_KEY=${RAG_LLM_API_KEY}
       - RAG_LLM_PROVIDER=${RAG_LLM_PROVIDER:-openai}
       - RAG_LLM_MODEL=${RAG_LLM_MODEL:-gpt-4-turbo}
       - RAG_EMBEDDING_MODEL=${RAG_EMBEDDING_MODEL:-text-embedding-3-small}
+      - RAG_VECTOR_DB_TYPE=qdrant
       - RAG_VECTOR_DB_URL=http://qdrant:6333
       - RAG_VECTOR_INDEX_NAME=${RAG_VECTOR_INDEX_NAME:-logiCore_embeddings}
       - RAG_VECTOR_DIMENSIONS=${RAG_VECTOR_DIMENSIONS:-1536}
@@ -23,9 +24,10 @@ services:
       - RAG_CACHE_TTL_SECONDS=${RAG_CACHE_TTL_SECONDS:-300}
       - RAG_ASSEMBLYAI_API_KEY=${RAG_ASSEMBLYAI_API_KEY:-}
       - RAG_TESSERACT_LANG=${RAG_TESSERACT_LANG:-ara+eng}
+      - RAG_CROSS_ENCODER_MODEL=${RAG_CROSS_ENCODER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
+      - JWT_SECRET=${JWT_SECRET}
       - REPORTS_DIR=/app/reports
       - UPLOADS_DIR=/app/uploads/incidents
-      - JWT_SECRET=${JWT_SECRET}
     volumes:
       - ./reports:/app/reports
       - ./uploads:/app/uploads
