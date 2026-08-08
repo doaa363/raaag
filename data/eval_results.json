@@ -1,0 +1,15 @@
+{
+  "scores": {
+    "answer_relevancy": 0.4113,
+    "faithfulness": 0.3702,
+    "context_precision": 0.3496,
+    "context_recall": 0.3291
+  },
+  "samples": 4,
+  "queries": [
+    "What are the common reasons for delivery delays in Zone 7?",
+    "How to handle a damaged package complaint?",
+    "What is the on-time delivery rate?",
+    "What actions should be taken for urgent shipment issues?"
+  ]
+}

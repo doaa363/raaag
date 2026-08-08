@@ -111,8 +111,8 @@ def print_table(label: str, scores: Dict):
     print(f"  {label}")
     print(f"{'='*45}")
     for metric, value in scores.items():
-        bar = "█" * int(float(value) * 20)
-        print(f"  {metric:<22} {float(value):.4f}  {bar}")
+        bar = "|" * int(float(value) * 20)
+        print(f"  {metric:<22} {float(value):.4f}  [{bar:<20}]")
     print(f"{'='*45}\n")
 
 

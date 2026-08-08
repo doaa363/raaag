@@ -1,0 +1,10 @@
+{"query": "Delivery delay in zone 0", "positive_context": "doc_0", "negative_context": "neg_doc_0"}
+{"query": "Delivery delay in zone 1", "positive_context": "doc_1", "negative_context": "neg_doc_1"}
+{"query": "Delivery delay in zone 2", "positive_context": "doc_2", "negative_context": "neg_doc_2"}
+{"query": "Delivery delay in zone 3", "positive_context": "doc_3", "negative_context": "neg_doc_3"}
+{"query": "Delivery delay in zone 4", "positive_context": "doc_4", "negative_context": "neg_doc_4"}
+{"query": "Delivery delay in zone 5", "positive_context": "doc_5", "negative_context": "neg_doc_0"}
+{"query": "Delivery delay in zone 6", "positive_context": "doc_6", "negative_context": "neg_doc_1"}
+{"query": "Delivery delay in zone 7", "positive_context": "doc_7", "negative_context": "neg_doc_2"}
+{"query": "Delivery delay in zone 8", "positive_context": "doc_8", "negative_context": "neg_doc_3"}
+{"query": "Delivery delay in zone 9", "positive_context": "doc_9", "negative_context": "neg_doc_4"}

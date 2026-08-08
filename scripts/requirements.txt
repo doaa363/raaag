@@ -1,11 +1,11 @@
-pymongo==4.7.2
-python-dotenv==1.0.1
-sentence-transformers==3.0.1
-torch==2.3.1
-onnx==1.16.1
-onnxruntime==1.18.1
-transformers==4.42.4
-pandas==2.2.2
-datasets==2.20.0
-ragas==0.1.14
-requests==2.32.3
+pymongo>=4.7.2
+python-dotenv>=1.0.1
+sentence-transformers>=3.0.1
+torch>=2.9.0
+onnx>=1.16.1
+onnxruntime>=1.18.1
+transformers>=4.42.4
+pandas>=2.2.2
+datasets>=2.20.0
+requests>=2.32.3
+# ragas>=0.1.14  # requires C++ build tools (scikit-network); evaluate_rag.py uses heuristic fallback
